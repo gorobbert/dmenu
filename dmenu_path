@@ -1,13 +1,24 @@
-#!/bin/sh
-
-cachedir="${XDG_CACHE_HOME:-"$HOME/.cache"}"
-cache="$cachedir/dmenu_run"
-
-[ ! -e "$cachedir" ] && mkdir -p "$cachedir"
-
-IFS=:
-if stest -dqr -n "$cache" $PATH; then
-	stest -flx $PATH | sort -u | tee "$cache"
+#!/bin/bash
+cachedir=${XDG_CACHE_HOME:-"$HOME/.cache"}
+if [ -d "$cachedir" ]; then
+    cache=$cachedir/dmenu_run
 else
-	cat "$cache"
+    cache=$HOME/.dmenu_cache # if no xdg dir, fall back to dotfile in ~
 fi
+
+cmd=`(
+IFS=:
+aliases=~/.aliases
+if stest -dqr -n "$cache" $PATH || stest -fqr -n "$cache" "$aliases"; then
+(
+stest -flx $PATH
+source $aliases
+alias | sed 's/alias \([[:alnum:]]\+\)=.*/\1/'
+) | sort -u | tee "$cache" | dmenu "$@"
+else
+dmenu "$@" < "$cache"
+fi
+)`
+# Perform alias expansion on $cmd
+echo -e "source ~/.aliases \n $cmd" | bash -O expand_aliases &
+
